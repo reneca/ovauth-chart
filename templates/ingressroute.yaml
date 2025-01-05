@@ -21,7 +21,7 @@ spec:
       name: ovauth
       port: ovauth
       scheme: https
-      serversTransport: traefik-insecuretransport@kubernetescrd
+      serversTransport: {{ .Release.Namespace }}-insecuretransport@kubernetescrd
       nativeLB: true
       nodePortLB: true
 ---
