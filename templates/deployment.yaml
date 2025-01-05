@@ -38,14 +38,14 @@ spec:
             - name: ovauth
               containerPort: 8443
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /ping
-              port: ovauth
-              scheme: HTTPS
-              httpHeaders:
-                - name: User-Agent
-                  value: "KubernetesProbe"
+#          livenessProbe:
+#            httpGet:
+#              path: /ping
+#              port: ovauth
+#              scheme: HTTPS
+#              httpHeaders:
+#                - name: User-Agent
+#                  value: "KubernetesProbe"
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
