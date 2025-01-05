@@ -1,0 +1,55 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "ovauth-chart.fullname" . }}
+  labels:
+    {{- include "ovauth-chart.labels" . | nindent 4 }}
+  {{- with .Values.ingressRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingressRoute.entryPoints }}
+  entryPoints:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  routes:
+  - kind: Rule
+    match: Host(`{{ .Values.ingressRoute.publicUrl }}`) && PathPrefix(`/auth`)
+    services:
+    - kind: Service
+      name: ovauth
+      port: ovauth
+      scheme: https
+      serversTransport: traefik-insecuretransport@kubernetescrd
+      nativeLB: true
+      nodePortLB: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "ovauth-chart.fullname" . }}-www
+  labels:
+    {{- include "ovauth-chart.dashboardLabels" . | nindent 4 }}
+  {{- with .Values.ingressRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingressRoute.entryPoints }}
+  entryPoints:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  routes:
+  - kind: Rule
+    match: Host(`{{ .Values.ingressRoute.publicUrl }}`) && (Path(`/`) || Path(`/favicon.ico`) || PathPrefix(`/res`))
+    middlewares:
+    - name: {{ .Release.Namespace }}-ovauth@kubernetescrd
+      namespace: {{ .Release.Namespace }}
+    services:
+    - kind: Service
+      name: ovauth-www
+      port: ovauth-www
+      scheme: http
+      nativeLB: true
+      nodePortLB: true

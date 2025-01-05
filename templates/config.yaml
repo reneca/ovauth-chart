@@ -1,0 +1,159 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ovauth-chart.name" . }}-configmap
+data:
+  root.toml: |
+    [traefik]
+    bind = "https://0.0.0.0:8443"
+  ovauth.toml: |
+    [jwt]
+    algo = "HS256"
+    shared_secret_file = "/etc/ovauth-data/jwt_shared_secret"
+
+{{- if .Values.oauth.enabled }}
+
+    [gitlab_oauth]
+    app_id = "{{ .Values.oauth.appId }}"
+    app_secret_file = "/etc/ovauth-data/app_secret"
+    scope = "read_user"
+    oauth_host = "https://{{ .Values.oauth.oauthUrl }}"
+    redirect_url = "https://{{ .Values.ingressRoute.publicUrl }}/auth/login"
+{{- end }}
+  users.toml: |
+{{- range $.Values.adminUsers }}
+    [[user]]
+{{- if .oauthname }}
+    username = "{{ .oauthname }}"
+{{- else }}
+    username = "{{ .username }}"
+{{- end }}
+    email = "{{ .email }}"
+    right = "admin"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path_prefix = "/api"
+      forward = "degraded"
+      right = "standard"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path_prefix = "/dashboard"
+      right = "standard"
+      icon = "traefik_icon.svg"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path = "/"
+      forward = "degraded"
+      right = "admin"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path = "/favicon.ico"
+      forward = "degraded"
+      right = "admin"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path_prefix = "/res"
+      forward = "degraded"
+      right = "standard"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path_prefix = "/prometheus"
+      right = "admin"
+      icon = "prometheus_icon.svg"
+      desc = "Prometheus for metrics"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path_prefix = "/grafana"
+      forward = "mandatory"
+      right = "admin"
+      icon = "grafana_icon.svg"
+      desc = "Grafana dashboards"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path_prefix = "/v2"
+      forward = "degraded"
+      right = "standard"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path_prefix = "/docker"
+      right = "standard"
+      icon = "docker_icon.svg"
+      desc = "Docker registry"
+
+      [[user.user_target]]
+      host = "{{ $.Values.ingressRoute.publicUrl }}"
+      path_prefix = "/portainer"
+      right = "standard"
+      icon = "portainer_icon.svg"
+      desc = "Portainer for Kubernetes"
+
+      [[user.user_target]]
+      host = "coder.{{ $.Values.ingressRoute.publicUrl }}"
+      forward = "mandatory"
+      right = "admin"
+      icon = "coder_icon.svg"
+      desc = "Coder development environments"
+{{- end }}
+
+    [[default_target]]
+    host = "{{ .Values.ingressRoute.publicUrl }}"
+    path = "/"
+    forward = "degraded"
+    right = "standard"
+
+    [[default_target]]
+    host = "{{ .Values.ingressRoute.publicUrl }}"
+    path = "/favicon.ico"
+    forward = "degraded"
+    right = "standard"
+
+    [[default_target]]
+    host = "{{ .Values.ingressRoute.publicUrl }}"
+    path_prefix = "/res"
+    forward = "degraded"
+    right = "standard"
+
+    [[default_target]]
+    host = "{{ .Values.ingressRoute.publicUrl }}"
+    path_prefix = "/grafana"
+    forward = "mandatory"
+    right = "readonly"
+    icon = "grafana_icon.svg"
+    desc = "Grafana dashboards"
+
+    [[default_target]]
+    host = "{{ .Values.ingressRoute.publicUrl }}"
+    path_prefix = "/v2"
+    forward = "degraded"
+    right = "standard"
+
+    [[default_target]]
+    host = "{{ .Values.ingressRoute.publicUrl }}"
+    path_prefix = "/docker"
+    right = "standard"
+    icon = "docker_icon.svg"
+    desc = "Docker registry"
+
+    [[default_target]]
+    host = "coder.{{ .Values.ingressRoute.publicUrl }}"
+    forward = "mandatory"
+    right = "standard"
+    icon = "coder_icon.svg"
+    desc = "Coder development environments"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ovauth-chart.name" . }}-www-configmap
+binaryData:
+  favicon.ico:
+    {{ .Files.Get "favicon.ico" | b64enc | indent 4}}

@@ -1,0 +1,20 @@
+# Forward authentication to example.com
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ovauth
+  labels:
+    {{- include "ovauth-chart.labels" . | nindent 4 }}
+  {{- with .Values.ingressRoute.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  forwardAuth:
+    address: https://{{ .Values.ingressRoute.publicUrl }}/auth
+    trustForwardHeader: true
+    authResponseHeaders:
+      - X-WEBAUTH-USER
+      - X-WEBAUTH-NAME
+      - X-WEBAUTH-EMAIL
+      - X-WEBAUTH-ROLE

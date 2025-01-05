@@ -1,0 +1,155 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ovauth-chart.name" . }}
+  labels:
+    {{- include "ovauth-chart.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ovauth-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "ovauth-chart.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["-n", "OVAuth {{ include "ovauth-chart.name" . }}", "-v", "/etc/ovauth/*.toml"]
+          ports:
+            - name: ovauth
+              containerPort: 8443
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: ovauth
+              scheme: HTTPS
+              httpHeaders:
+                - name: User-Agent
+                  value: "KubernetesProbe"
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: ovauth
+              mountPath: /etc/ovauth/root.toml
+              subPath: root.toml
+              readOnly: true
+            - name: ovauth
+              mountPath: /etc/ovauth/ovauth.toml
+              subPath: ovauth.toml
+              readOnly: true
+            - name: ovauth
+              mountPath: /etc/ovauth/users.toml
+              subPath: users.toml
+              readOnly: true
+            - name: ovauth
+              mountPath: /etc/ovauth-data/jwt_shared_secret
+              subPath: jwt_shared_secret
+              readOnly: true
+            {{- if .Values.oauth.enabled }}
+            - name: ovauth
+              mountPath: /etc/ovauth-data/app_secret
+              subPath: app_secret
+              readOnly: true
+            {{- end }}
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: ovauth
+          projected:
+            sources:
+            - configMap:
+                name: {{ include "ovauth-chart.name" . }}-configmap
+            - secret:
+                name: {{ include "ovauth-chart.name" . }}-jwt
+            {{- if .Values.oauth.enabled }}
+            - secret:
+                name: {{ include "ovauth-chart.name" . }}-oauth
+            {{- end }}
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ovauth-chart.name" . }}-www
+  labels:
+    {{- include "ovauth-chart.dashboardLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.dashboardReplicaCount }}
+  selector:
+    matchLabels:
+      {{- include "ovauth-chart.selectorDashboardLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "ovauth-chart.dashboardLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}-www
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.dashboard.repository }}:{{ .Values.image.dashboard.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.dashboard.pullPolicy }}
+          env:
+          - name: APP_NAME
+            value: "{{ .Values.appName }}"
+          - name: PUBLIC_URL
+            value: "{{ .Values.ingressRoute.publicUrl }}"
+          ports:
+            - name: ovauth-www
+              containerPort: 80
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: ovauth-www
+              mountPath: /usr/share/nginx/html/favicon.ico
+              subPath: favicon.ico
+              readOnly: true
+          {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: ovauth-www
+          projected:
+            sources:
+            - configMap:
+                name: {{ include "ovauth-chart.name" . }}-www-configmap
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
